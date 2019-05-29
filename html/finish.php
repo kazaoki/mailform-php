@@ -1,6 +1,7 @@
 <?php
 require 'form-core/loader.php';
 if(is_post()) {
+  check();
   send();
   header('Location: ./finish.php');
   exit;
