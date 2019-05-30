@@ -70,6 +70,13 @@ is_post() && extract($_POST);
 var validon = new Validon({
   form:     '#form',
   config:   'contact',
+  // eachfire: true,
+  finishFunc: function(json){
+    if(json.isSubmit) {
+      var error = this.form.querySelector('.error');
+      if(error) document.querySelector('html').scrollTop = error.getBoundingClientRect().top + window.pageYOffset - 50
+    }
+  }
 })
 </script>
 

@@ -6,7 +6,6 @@ session_start();
  * ライブラリロード
  */
 require_once(__DIR__.'/vendors/validon/validon.php');
-require_once(__DIR__.'/vendors/validon/configs/contact.php');
 require_once(__DIR__.'/vendors/jp_send_mail/jp_send_mail.php');
 require_once(__DIR__.'/../mail-config.php');
 
@@ -26,13 +25,16 @@ function input()
 /**
  * 確認画面処理
  */
-function check()
+function check($validon_name)
 {
     global $config;
 
+    // バリデータロード
+    require_once(__DIR__.'/vendors/validon/configs/'.$validon_name.'.php');
+
     // バリデート実行
     $result = validon($_POST);
-    if(count(@$result['errors'])) {
+    if(@count(@$result['errors'])) {
         $message =
             '<p>' .
             '入力値に問題が見つかりました。<br>' .
@@ -59,24 +61,17 @@ function send()
 {
     global $config;
 
-    // CSRFチェック
-    if(@$config['csrf_name']) {
-        if($_POST[$config['csrf_name']] !== $_SESSION[$config['csrf_name']]) {
-            error('フォームを正しく進まなかった、またはJavaScriptを無効にしている可能性があります。<br>大変お手数ですが、<a href="./">最初から</a>やり直してください。');
-            csrf_clear();
-        }
-    }
-
     // 事務局通知メール
     $res = jp_send_mail(array(
         'from'     => $config['order_from'],
         'to'       => $config['order_to'],
         'subject'  => $config['order_subject'],
         'body'     => $config['order_body'],
+        'reply'    => @$config['order_reply'],
+        'encoding' => @$config['encoding'],
         'phpable'  => $_POST,
-        'encoding' => $config['encoding'],
     ));
-    $res || error('事務局へのメール送信に失敗しました。メールアドレスが正しくない可能性があります。<br>'.embed_eval($config['thanks_to'], $_POST));
+    $res || error('事務局へのメール送信に失敗しました。メールアドレスが正しくない可能性があります。<br>'.embed_eval($config['order_to'], $_POST));
 
     // サンクスメール
     $res = jp_send_mail(array(
@@ -84,8 +79,9 @@ function send()
         'to'       => $config['thanks_to'],
         'subject'  => $config['thanks_subject'],
         'body'     => $config['thanks_body'],
+        'reply'    => @$config['thanks_reply'],
+        'encoding' => @$config['encoding'],
         'phpable'  => $_POST,
-        'encoding' => $config['encoding'],
     ));
     $res || error('入力者へのメール送信に失敗しました。メールアドレスが正しくない可能性があります。<br>'.embed_eval($config['thanks_to'], $_POST));
 
@@ -146,7 +142,7 @@ function is_post()
  */
 function error($message)
 {
-    header('HTTP', true, 400);
+    header('HTTP/1.0 400 Bad Request', true, 400);
     echo '<!DOCTYPE html>';
     echo '<html>';
     echo '<head><meta charset="UTF-8"><title>Error</title></head>';
@@ -233,14 +229,15 @@ function hiddens($with_keys=null, $with_out_keys=null)
  */
 function csrf_check()
 {
-	global $config;
-	if(strlen(@$config['csrf_name'])){
-		$csrf_key = $config['csrf_name'];
-		$FK[$csrf_key] = new FormKitElement($csrf_key);
-		if(@$_SESSION[$config['csrf_name']] !== $FK[$csrf_key]->raw){
-			error('正しいアクセスではありません。最初のページから再度アクセスしてください。');
-		}
-	}
+    global $config;
+
+	// CSRFチェック
+    if(@$config['csrf_name']) {
+        if($_POST[@$config['csrf_name']] !== $_SESSION[@$config['csrf_name']]) {
+            error('フォームを正しく進まなかった、またはJavaScriptを無効にしている可能性があります。<br>大変お手数ですが、<a href="./">最初から</a>やり直してください。');
+            csrf_clear();
+        }
+    }
 }
 
 /**
@@ -248,8 +245,8 @@ function csrf_check()
  */
 function csrf_clear()
 {
-    global $config;
-	unset($_SESSION[$config['csrf_name']]);
+	global $config;
+	if(@$config['csrf_name']) unset($_SESSION[$config['csrf_name']]);
 }
 
 /**

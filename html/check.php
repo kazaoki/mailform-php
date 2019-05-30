@@ -1,7 +1,8 @@
 <?php
 require 'form-core/loader.php';
 is_post() || error('正しくないアクセスです。');
-check();
+csrf_check();
+check('contact');
 extract($_POST);
 ?>
 <!DOCTYPE html>

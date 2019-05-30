@@ -1,10 +1,11 @@
 <?php
 require 'form-core/loader.php';
 if(is_post()) {
-  check();
-  send();
-  header('Location: ./finish.php');
-  exit;
+	check('contact');
+	csrf_check();
+    send();
+    header('Location: ./finish.php');
+    exit;
 }
 is_get() || error('正しくないアクセスです。');
 ?>
