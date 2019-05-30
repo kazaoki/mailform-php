@@ -16,4 +16,7 @@ $config = array(
 
   // メール文字コード：ISO-2022-JP や UTF-8 など（未指定時：ISO-2022-JP-MS）
   'encoding'       => 'UTF-8',
+
+  // CSRFを有効にしたい場合はクッキー名を入力
+  'csrf_name'      => 'mailform-csrf',
 );

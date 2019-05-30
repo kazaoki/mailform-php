@@ -1,5 +1,7 @@
 <?php
 
+session_start();
+
 /**
  * ライブラリロード
  */
@@ -9,10 +11,25 @@ require_once(__DIR__.'/vendors/jp_send_mail/jp_send_mail.php');
 require_once(__DIR__.'/../mail-config.php');
 
 /**
+ * 入力画面処理
+ */
+function input()
+{
+    global $config;
+
+    // CSRF生成
+    if(@$config['csrf_name']) {
+        $_POST[$config['csrf_name']] = csrf_generate();
+    }
+}
+
+/**
  * 確認画面処理
  */
 function check()
 {
+    global $config;
+
     // バリデート実行
     $result = validon($_POST);
     if(count(@$result['errors'])) {
@@ -33,7 +50,6 @@ function check()
         $message .= '</ul>';
         error($message);
     }
-
 }
 
 /**
@@ -42,6 +58,14 @@ function check()
 function send()
 {
     global $config;
+
+    // CSRFチェック
+    if(@$config['csrf_name']) {
+        if($_POST[$config['csrf_name']] !== $_SESSION[$config['csrf_name']]) {
+            error('フォームを正しく進まなかった、またはJavaScriptを無効にしている可能性があります。<br>大変お手数ですが、<a href="./">最初から</a>やり直してください。');
+            csrf_clear();
+        }
+    }
 
     // 事務局通知メール
     $res = jp_send_mail(array(
@@ -52,6 +76,7 @@ function send()
         'phpable'  => $_POST,
         'encoding' => $config['encoding'],
     ));
+    $res || error('事務局へのメール送信に失敗しました。メールアドレスが正しくない可能性があります。<br>'.embed_eval($config['thanks_to'], $_POST));
 
     // サンクスメール
     $res = jp_send_mail(array(
@@ -62,6 +87,24 @@ function send()
         'phpable'  => $_POST,
         'encoding' => $config['encoding'],
     ));
+    $res || error('入力者へのメール送信に失敗しました。メールアドレスが正しくない可能性があります。<br>'.embed_eval($config['thanks_to'], $_POST));
+
+    // CSRFクリア
+    if(@$config['csrf_name']) {
+        csrf_clear();
+    }
+}
+
+/**
+ * 文字列を指定の変数の展開して埋め込む
+ */
+function embed_eval($data, $vars) {
+    extract($vars);
+    ob_start();
+    eval ('?>'.$data);
+    $result = ob_get_contents();
+    ob_end_clean();
+    return $result;
 }
 
 /**
@@ -183,4 +226,96 @@ function hiddens($with_keys=null, $with_out_keys=null)
     }
 
     return;
+}
+
+/**
+ * CSRF Validate
+ */
+function csrf_check()
+{
+	global $config;
+	if(strlen(@$config['csrf_name'])){
+		$csrf_key = $config['csrf_name'];
+		$FK[$csrf_key] = new FormKitElement($csrf_key);
+		if(@$_SESSION[$config['csrf_name']] !== $FK[$csrf_key]->raw){
+			error('正しいアクセスではありません。最初のページから再度アクセスしてください。');
+		}
+	}
+}
+
+/**
+ * CSRF Validate
+ */
+function csrf_clear()
+{
+    global $config;
+	unset($_SESSION[$config['csrf_name']]);
+}
+
+/**
+ * CSRF値生成
+ *
+ * csrf_generate() ... なければ新規作成、あれば現在のトークンを返す
+ * csrf_generate(true) ... 新しいトークンを作成して返す
+ */
+function csrf_generate($update=false)
+{
+    global $config;
+    if(function_exists('session_status') && session_status() === PHP_SESSION_NONE) error('PHPセッションが無効です。');
+    if(!@$_SESSION[$config['csrf_name']] || $update) {
+        $token = $_SESSION[$config['csrf_name']] = sha1(uniqid(mt_rand(), true));
+    } else {
+        $token = $_SESSION[$config['csrf_name']];
+    }
+	return @$token;
+}
+
+/**
+ * <option>タグを一挙出力する
+ *
+ * <?= options_tag(array('AAA','BBB','CCC'), $enq, 'CCC') ?>
+ * <?= options_tag(array('AAA','BBB','CCC'), 'AAA', 'CCC') ?>
+ */
+function options_tag($list=array(), $selected='', $default=null)
+{
+	$html = '';
+	foreach($list as $item){
+		$selected_attr = '';
+		if(gettype($selected)==='object' && array_key_exists($selected->name, $_POST)) {
+			if(is_array($selected->val)){
+				$selected_attr = in_array($item, $selected->val) ? ' selected' : '';
+			} else {
+				$selected_attr = $selected->val==$item ? ' selected' : '';
+			}
+		}
+		else if(strlen($selected)) $selected_attr = $selected==$item ? ' selected' : '';
+		else if(strlen($default)) $selected_attr = $default==$item ? ' selected' : '';
+		$html .= sprintf ('<option value="%s"%s>%s</option>'."\n",
+			$item,
+			$selected_attr,
+			$item
+		);
+	}
+	return $html;
+}
+
+/**
+ * 都道府県の<option>タグを一挙出力する
+ *
+ * <?= pref_options_tag($pref, '宮城県') ?>
+ */
+function pref_options_tag($selected='', $default=null)
+{
+	return options_tag(array(
+		'北海道',
+		'青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+		'東京都', '神奈川県', '埼玉県', '千葉県', '茨城県', '栃木県', '群馬県', '山梨県',
+		'新潟県', '長野県', '富山県', '石川県', '福井県',
+		'愛知県', '岐阜県', '静岡県', '三重県',
+		'大阪府', '兵庫県', '京都府', '滋賀県', '奈良県','和歌山県',
+		'鳥取県', '島根県', '岡山県', '広島県', '山口県',
+		'徳島県', '香川県', '愛媛県', '高知県',
+		'福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県',
+		'沖縄県',
+	), $selected, $default);
 }

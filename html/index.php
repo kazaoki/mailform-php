@@ -1,6 +1,7 @@
 <?php
 require 'form-core/loader.php';
-extract($_POST);
+is_get() && input();
+is_post() && extract($_POST);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,6 +19,9 @@ extract($_POST);
 <body>
 
 <form action="check.php" method="post" id="form">
+<?php if(@$config['csrf_name']) { ?>
+<input type="hidden" name="<?php echo $config['csrf_name'] ?>" value="<?php echo h($_POST[$config['csrf_name']]) ?>">
+<?php } ?>
 <dl>
   <dt>お名前 *</dt>
   <dd><input type="text" name="name" value="<?php echo h(@$name) ?>"></dd>

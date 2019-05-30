@@ -34,7 +34,7 @@ $_VALIDON['email'] = function(&$value, &$data=null)
 {
     // 条件
     if(!strlen($value)) return '必須項目です。';
-    if(!__IS_EMAIL($value)) return 'メールアドレスを正しく入力してください。';
+    if(!__IS_EMAIL($value, true)) return 'メールアドレスを正しく入力してください。';
 };
 
 /**
